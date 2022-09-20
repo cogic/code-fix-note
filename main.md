@@ -68,3 +68,128 @@ module.exports = {
 ```
 
 [CSS 相关 | Vue CLI (vuejs.org)](https://cli.vuejs.org/zh/guide/css.html#向预处理器-loader-传递选项)
+
+
+
+* #vue #vue-router
+
+VueRouter报错：Navigation cancelled from ... to ... with a new navigation.
+
+问题原因：这种情况可能是连续指向两次以上的路由跳转导致.比如原来在 /a，使用router跳转到/b，然后又跳转到/c。由于/a还没跳转到/b就立刻又跳转/c，遂有一次跳转‘cancelled ’。这个报错见与vue-router 3.x的版本，4.x可能不报错。
+
+解决办法：出现这种情况说明有不必要的路由跳转，最好是改善代码。也有其他解决办法的说法，未必好用。
+
+[vue-router 报错：Navigation cancelled from“/...“ to “/...“ with a new navigation._迎面吹来微风的博客-CSDN博客](https://blog.csdn.net/qq_42185724/article/details/112219867)
+
+[vue-router 报错：Navigation cancelled from“/...“ to “/...“ with a new navigation._meloeyLeo的博客-CSDN博客](https://blog.csdn.net/weixin_47084275/article/details/108205775)
+
+[解决 Uncaught (in promise) Error: Navigation cancelled from “/...“ to “/...“ with a new navigation._无语，人生的过客� � �的博客-CSDN博客](https://blog.csdn.net/li22356/article/details/115766636)
+
+
+
+* #vue #this
+
+当前建有 debounce.js 防抖函数脚本，将 debounce 函数引入 .vue 文件后使用发现报错：
+
+```javascript
+// test 为需要 debounce 的函数
+export default {
+  methods: {
+    test() {
+      console.log('test');
+    },
+    dtest: debounce(this.test, 1000),
+  },
+}
+// TypeError: Cannot read properties of undefined (reading 'test')
+```
+
+原因是这种情况下 `this` 是取不到的（为 undefined）
+
+解决办法：
+
+方法①（不推荐） ：不使用 this 可以避免这个问题：
+
+```javascript
+export default {
+  methods: {
+    test() {
+      console.log('test');
+    },
+    dtest: debounce(function () {
+      // 内部如果使用 this 的话是没有问题的，这与 debounce 实现相关
+      console.log('test');
+    }, 1000),
+  },
+}
+```
+
+上面的方式直接将函数整体作为参数，缺点是如果函数内容比较多则代码不够清晰。且如果上面的 test 函数既有需要 debounce 的场景也有正常使用的场景，则 test 函数就要像上面那样重复写了两次，非常糟糕。
+
+
+
+方法② （不太推荐）：针对方法①的问题，可以采取只传函数名，不传函数的方法：
+
+```javascript
+export default {
+  methods: {
+    test() {
+      console.log('test');
+    },
+    dtest: debounce('test', 1000),
+  },
+}
+```
+
+这样子的话，debounce 函数需作出定制化的修改：
+
+```javascript
+// 原本的 debounce 函数省略后的内容
+function debounce(fn, delay) {
+  ...
+  return function () {
+    ...
+    ... setTimeout(() => {
+      func.apply...;
+    }, delay);
+    ...
+  }
+}
+
+// 改为使用函数名调用后的 debounce 函数
+function vueDebounce(fnName, delay) {
+  ...
+  return function () {
+    ...
+    ... setTimeout(() => {
+      this.fnName.apply...
+    }, delay);
+    ...
+  }
+}
+```
+
+可以看到，如果只是在这种情况下使用，除了传递函数名这一有点奇怪的地方外，没有太大问题。但是由于 debounce 函数定制化的修改，当在其他情况下使用时（如希望直接传函数整体的情况，像方法①的方式），可能会带来不便。通常像 debounce 函数这样的通用函数，可以随意复制到不同项目中在不同情况下使用，不希望修改成不太通用的样子。
+
+[如何在Vue中优雅的使用防抖节流 - luckrain7 - 博客园 (cnblogs.com)](https://www.cnblogs.com/luckrain7/p/12670473.html)
+
+
+
+方法③（推荐）：这是我自己想到的解决方式，即使用 `computed`：
+
+```javascript
+export default {
+  computed: {
+    dtest() {
+      return debounce(this.test, 1000);
+    },
+  },
+  methods: {
+    test() {
+      console.log('test');
+    },
+  },
+}
+```
+
+于是，由于 vue 产生的问题借助 vue 解决了。
